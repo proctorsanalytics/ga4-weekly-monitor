@@ -1,0 +1,22 @@
+{
+  "name": "ga4-change-monitor",
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google-analytics/data": "^7.0.0",
+    "dotenv": "^17.4.2",
+    "resend": "^6.26.0"
+  }
+}
