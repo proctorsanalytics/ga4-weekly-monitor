@@ -29,7 +29,14 @@ export async function main() {
   const text = [`GA4 change alert for property ${config.propertyId}`, '', ...lines,
     '', `Alert threshold: ${config.thresholdPercent}%`].join('\n');
   const html = `<h1>GA4 change alert</h1><p>Property: ${escapeHtml(config.propertyId)}</p><ul>${lines.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}</ul><p>Alert threshold: ${config.thresholdPercent}%</p>`;
-  await sendAlert({ ...config, apiKey: config.resendApiKey, subject: `GA4 change alert: ${config.propertyId}`, text, html });
+  await sendAlert({
+    apiKey: config.agentMailApiKey,
+    inboxId: config.agentMailInboxId,
+    to: config.emailTo,
+    subject: `GA4 change alert: ${config.propertyId}`,
+    text,
+    html,
+  });
   console.log('GA4 change alert sent.');
 }
 

@@ -16,8 +16,8 @@ export function loadConfig(env = process.env) {
   return {
     propertyId: propertyId.replace(/^properties\//, ''),
     thresholdPercent: threshold,
-    resendApiKey: requiredFrom(env, 'RESEND_API_KEY'),
-    emailFrom: requiredFrom(env, 'EMAIL_FROM'),
+    agentMailApiKey: requiredFrom(env, 'AGENTMAIL_API_KEY'),
+    agentMailInboxId: requiredFrom(env, 'AGENTMAIL_INBOX_ID'),
     emailTo: requiredFrom(env, 'EMAIL_TO'),
     googleCredentials: clientEmail ? { client_email: clientEmail, private_key: privateKey } : undefined,
   };
