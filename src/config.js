@@ -1,6 +1,5 @@
 export function loadConfig(env = process.env) {
-  const propertyId = env.GA4_PROPERTY_ID?.trim();
-  if (!propertyId) throw new Error('Missing required environment variable: GA4_PROPERTY_ID');
+  const properties = parseProperties(env.GA4_PROPERTIES_JSON);
 
   const threshold = Number(env.CHANGE_THRESHOLD_PERCENT ?? 10);
   if (!Number.isFinite(threshold) || threshold < 0) {
@@ -14,13 +13,57 @@ export function loadConfig(env = process.env) {
   }
 
   return {
-    propertyId: propertyId.replace(/^properties\//, ''),
+    properties,
     thresholdPercent: threshold,
     agentMailApiKey: requiredFrom(env, 'AGENTMAIL_API_KEY'),
     agentMailInboxId: requiredFrom(env, 'AGENTMAIL_INBOX_ID'),
     emailTo: requiredFrom(env, 'EMAIL_TO'),
     googleCredentials: clientEmail ? { client_email: clientEmail, private_key: privateKey } : undefined,
   };
+}
+
+function parseProperties(value) {
+  if (!value?.trim()) throw new Error('Missing required environment variable: GA4_PROPERTIES_JSON');
+
+  let parsed;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error('GA4_PROPERTIES_JSON must be valid JSON');
+  }
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error('GA4_PROPERTIES_JSON must be a non-empty JSON array');
+  }
+
+  const properties = parsed.map((property, index) => {
+    if (!property || typeof property !== 'object' || Array.isArray(property)) {
+      throw new Error(`GA4_PROPERTIES_JSON entry ${index + 1} must include name, domain, and propertyId`);
+    }
+
+    const name = typeof property.name === 'string' ? property.name.trim() : '';
+    const domain = typeof property.domain === 'string' ? property.domain.trim() : '';
+    const rawPropertyId = typeof property.propertyId === 'string'
+      ? property.propertyId.trim()
+      : String(property.propertyId ?? '').trim();
+    const propertyId = rawPropertyId.replace(/^properties\//, '');
+
+    if (!name || !domain || !propertyId) {
+      throw new Error(`GA4_PROPERTIES_JSON entry ${index + 1} must include name, domain, and propertyId`);
+    }
+    if (!/^\d+$/.test(propertyId)) {
+      throw new Error(`GA4_PROPERTIES_JSON entry ${index + 1} propertyId must be numeric`);
+    }
+
+    return { name, domain, propertyId };
+  });
+
+  const ids = new Set(properties.map(({ propertyId }) => propertyId));
+  if (ids.size !== properties.length) {
+    throw new Error('GA4_PROPERTIES_JSON must not contain duplicate property IDs');
+  }
+
+  return properties;
 }
 
 function requiredFrom(env, name) {

@@ -9,7 +9,9 @@ A Node.js 20+ ES-module job that compares GA4 `activeUsers` and `screenPageViews
 3. Copy `.env.example` to `.env` and set the values.
 4. Run `npm ci` and then `npm start`.
 
-`GA4_PROPERTY_ID`, `AGENTMAIL_API_KEY`, `AGENTMAIL_INBOX_ID`, and `EMAIL_TO` are required. `CHANGE_THRESHOLD_PERCENT` defaults to `10`; the comparison is strictly greater than the threshold. `EMAIL_TO` accepts comma-separated recipients. `GA4_PROPERTY_ID` may be supplied as either `123456789` or `properties/123456789`. GA4 relative dates use the property’s configured reporting timezone.
+`GA4_PROPERTIES_JSON`, `AGENTMAIL_API_KEY`, `AGENTMAIL_INBOX_ID`, and `EMAIL_TO` are required. `GA4_PROPERTIES_JSON` must be a non-empty JSON array; each object must contain `name`, `domain`, and `propertyId`. Property IDs may be supplied as either `123456789` or `properties/123456789` and are normalized to numeric IDs. Duplicate property IDs are rejected. `CHANGE_THRESHOLD_PERCENT` defaults to `10`; the comparison is strictly greater than the threshold. `EMAIL_TO` accepts comma-separated recipients. GA4 relative dates use each property’s configured reporting timezone.
+
+The job checks every configured website and sends a separate AgentMail alert for each website whose `activeUsers` or `screenPageViews` change exceeds the threshold. If one website fails, the remaining websites are still checked and the job exits non-zero after all attempts.
 
 For service-account authentication, set both `GOOGLE_CLIENT_EMAIL` and `GOOGLE_PRIVATE_KEY`. Otherwise, the Google client uses Application Default Credentials. Keep credentials out of source control.
 

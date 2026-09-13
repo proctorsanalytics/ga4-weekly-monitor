@@ -4,7 +4,7 @@ import { loadConfig } from '../src/config.js';
 import { sendAlert } from '../src/email.js';
 
 const baseEnv = {
-  GA4_PROPERTY_ID: 'properties/123',
+  GA4_PROPERTIES_JSON: '[{"name":"Main site","domain":"example.com","propertyId":"properties/123"}]',
   AGENTMAIL_API_KEY: 'am_test',
   AGENTMAIL_INBOX_ID: 'alerts@example.com',
   EMAIL_TO: 'one@example.com, two@example.com ',
@@ -12,13 +12,35 @@ const baseEnv = {
 
 test('loads AgentMail settings without legacy email settings', () => {
   assert.deepEqual(loadConfig(baseEnv), {
-    propertyId: '123',
+    properties: [{ name: 'Main site', domain: 'example.com', propertyId: '123' }],
     thresholdPercent: 10,
     agentMailApiKey: 'am_test',
     agentMailInboxId: 'alerts@example.com',
     emailTo: 'one@example.com, two@example.com',
     googleCredentials: undefined,
   });
+});
+
+test('loads and normalizes multiple GA4 properties', () => {
+  const config = loadConfig({ ...baseEnv, GA4_PROPERTIES_JSON: JSON.stringify([
+    { name: 'First site', domain: 'first.example', propertyId: '123' },
+    { name: 'Second site', domain: 'second.example', propertyId: 'properties/456' },
+  ]) });
+
+  assert.deepEqual(config.properties, [
+    { name: 'First site', domain: 'first.example', propertyId: '123' },
+    { name: 'Second site', domain: 'second.example', propertyId: '456' },
+  ]);
+});
+
+test('rejects invalid, empty, incomplete, and duplicate property configuration', () => {
+  assert.throws(() => loadConfig({ ...baseEnv, GA4_PROPERTIES_JSON: '{not json' }), /valid JSON/);
+  assert.throws(() => loadConfig({ ...baseEnv, GA4_PROPERTIES_JSON: '[]' }), /non-empty JSON array/);
+  assert.throws(() => loadConfig({ ...baseEnv, GA4_PROPERTIES_JSON: '[{"name":"Only name"}]' }), /name, domain, and propertyId/);
+  assert.throws(() => loadConfig({ ...baseEnv, GA4_PROPERTIES_JSON: JSON.stringify([
+    { name: 'One', domain: 'one.example', propertyId: '123' },
+    { name: 'Two', domain: 'two.example', propertyId: 'properties/123' },
+  ]) }), /duplicate property IDs/);
 });
 
 test('requires the AgentMail API key and inbox', () => {
