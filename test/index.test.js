@@ -10,6 +10,7 @@ const env = {
   AGENTMAIL_API_KEY: 'am_test',
   AGENTMAIL_INBOX_ID: 'alerts@example.com',
   EMAIL_TO: 'owner@example.com',
+  DATABASE_URL: 'postgres://dashboard:test@localhost/ga4',
   CHANGE_THRESHOLD_PERCENT: '10',
 };
 
@@ -29,6 +30,7 @@ test('processes more than one property and sends separate website alerts', async
       previous: { activeUsers: 1, screenPageViews: 0 },
     }),
     sendAlertFn: async (alert) => calls.push(alert),
+    saveSnapshotFn: async () => {},
   });
 
   assert.equal(calls.length, 2);
@@ -55,6 +57,7 @@ test('continues after one property fails and rejects after all attempts', async 
       };
     },
     sendAlertFn: async () => {},
+    saveSnapshotFn: async () => {},
   }), /One or more GA4 properties failed/);
 
   assert.deepEqual(attempted, ['101', '202']);
@@ -74,6 +77,7 @@ test('logs no alert required for a property below the threshold', async () => {
       previous: { activeUsers: 100, screenPageViews: 100 },
     }),
     sendAlertFn: async () => { throw new Error('should not send'); },
+    saveSnapshotFn: async () => {},
   });
 
   assert.deepEqual(logs.messages, [['log', 'No alert required for: Quiet site']]);

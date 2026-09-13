@@ -1,4 +1,5 @@
-export function loadConfig(env = process.env) {
+export function loadConfig(env = process.env, options = {}) {
+  const { requireAgentMail = true, requireDatabase = true, requireDashboardAuth = false } = options;
   const properties = parseProperties(env.GA4_PROPERTIES_JSON);
 
   const threshold = Number(env.CHANGE_THRESHOLD_PERCENT ?? 10);
@@ -15,9 +16,12 @@ export function loadConfig(env = process.env) {
   return {
     properties,
     thresholdPercent: threshold,
-    agentMailApiKey: requiredFrom(env, 'AGENTMAIL_API_KEY'),
-    agentMailInboxId: requiredFrom(env, 'AGENTMAIL_INBOX_ID'),
-    emailTo: requiredFrom(env, 'EMAIL_TO'),
+    agentMailApiKey: requireAgentMail ? requiredFrom(env, 'AGENTMAIL_API_KEY') : env.AGENTMAIL_API_KEY?.trim(),
+    agentMailInboxId: requireAgentMail ? requiredFrom(env, 'AGENTMAIL_INBOX_ID') : env.AGENTMAIL_INBOX_ID?.trim(),
+    emailTo: requireAgentMail ? requiredFrom(env, 'EMAIL_TO') : env.EMAIL_TO?.trim(),
+    databaseUrl: requireDatabase ? requiredFrom(env, 'DATABASE_URL') : env.DATABASE_URL?.trim(),
+    dashboardUsername: requireDashboardAuth ? requiredFrom(env, 'DASHBOARD_USERNAME') : env.DASHBOARD_USERNAME?.trim(),
+    dashboardPassword: requireDashboardAuth ? requiredFrom(env, 'DASHBOARD_PASSWORD') : env.DASHBOARD_PASSWORD,
     googleCredentials: clientEmail ? { client_email: clientEmail, private_key: privateKey } : undefined,
   };
 }

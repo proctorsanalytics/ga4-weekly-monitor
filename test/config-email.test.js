@@ -8,6 +8,7 @@ const baseEnv = {
   AGENTMAIL_API_KEY: 'am_test',
   AGENTMAIL_INBOX_ID: 'alerts@example.com',
   EMAIL_TO: 'one@example.com, two@example.com ',
+  DATABASE_URL: 'postgres://dashboard:test@localhost/ga4',
 };
 
 test('loads AgentMail settings without legacy email settings', () => {
@@ -17,6 +18,9 @@ test('loads AgentMail settings without legacy email settings', () => {
     agentMailApiKey: 'am_test',
     agentMailInboxId: 'alerts@example.com',
     emailTo: 'one@example.com, two@example.com',
+    databaseUrl: 'postgres://dashboard:test@localhost/ga4',
+    dashboardUsername: undefined,
+    dashboardPassword: undefined,
     googleCredentials: undefined,
   });
 });
