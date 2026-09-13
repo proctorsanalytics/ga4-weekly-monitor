@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadConfig } from '../src/config.js';
+import { loadConfig, loadDashboardConfig } from '../src/config.js';
 import { buildSnapshotRows, saveSnapshot } from '../src/snapshot.js';
-import { createDashboardHandler, credentialsMatch, renderDashboard } from '../src/dashboard.js';
+import { createDashboardHandler, credentialsMatch, renderDashboard, startupDiagnostic, startDashboard } from '../src/dashboard.js';
 
 const property = { name: 'Test site', domain: 'test.example', propertyId: '123' };
 const result = {
@@ -17,6 +17,33 @@ test('requires dashboard credentials when dashboard configuration is loaded', ()
   const env = { GA4_PROPERTIES_JSON: JSON.stringify([property]), DATABASE_URL: 'postgres://localhost/ga4' };
   assert.throws(() => loadConfig(env, { requireAgentMail: false, requireDashboardAuth: true }), /DASHBOARD_USERNAME/);
   assert.throws(() => loadConfig({ ...env, DASHBOARD_USERNAME: 'user' }, { requireAgentMail: false, requireDashboardAuth: true }), /DASHBOARD_PASSWORD/);
+});
+
+test('loads dashboard configuration without cron-only GA4 or AgentMail settings', () => {
+  assert.deepEqual(loadDashboardConfig({
+    DATABASE_URL: 'postgres://db-user:db-password@host/ga4',
+    DASHBOARD_USERNAME: 'dashboard-user',
+    DASHBOARD_PASSWORD: 'dashboard-password',
+  }), {
+    databaseUrl: 'postgres://db-user:db-password@host/ga4',
+    dashboardUsername: 'dashboard-user',
+    dashboardPassword: 'dashboard-password',
+  });
+});
+
+test('reports a safe startup stage and error code without exception details', async () => {
+  const secret = 'postgres://db-user:secret-password@host/ga4';
+  assert.equal(startupDiagnostic('database initialisation', { code: 'ECONNREFUSED', message: secret }), 'GA4 dashboard failed during database initialisation: ECONNREFUSED');
+  assert.doesNotMatch(startupDiagnostic('database initialisation', { message: secret }), /secret-password|postgres/);
+
+  const pool = {
+    query: async () => { throw Object.assign(new Error(secret), { code: 'ECONNREFUSED' }); },
+    end: async () => {},
+  };
+  await assert.rejects(startDashboard({
+    env: { DATABASE_URL: secret, DASHBOARD_USERNAME: 'user', DASHBOARD_PASSWORD: 'password' },
+    pool,
+  }), /GA4 dashboard failed during database initialisation: ECONNREFUSED/);
 });
 
 test('replaces snapshots transactionally and rolls back failed replacements', async () => {

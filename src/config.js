@@ -26,6 +26,14 @@ export function loadConfig(env = process.env, options = {}) {
   };
 }
 
+export function loadDashboardConfig(env = process.env) {
+  return {
+    databaseUrl: requiredFrom(env, 'DATABASE_URL'),
+    dashboardUsername: requiredFrom(env, 'DASHBOARD_USERNAME'),
+    dashboardPassword: requiredFrom(env, 'DASHBOARD_PASSWORD'),
+  };
+}
+
 function parseProperties(value) {
   if (!value?.trim()) throw new Error('Missing required environment variable: GA4_PROPERTIES_JSON');
 

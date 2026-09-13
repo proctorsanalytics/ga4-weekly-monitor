@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import pg from 'pg';
-import { loadConfig } from './config.js';
+import { loadDashboardConfig } from './config.js';
 import { ensureSchema, getLatestSnapshot } from './snapshot.js';
 
 const { Pool } = pg;
@@ -104,19 +104,78 @@ export function createDashboardServer(options = {}) {
   return createServer(createDashboardHandler(options));
 }
 
+export function startupDiagnostic(stage, error) {
+  const codes = {
+    configuration: 'CONFIGURATION_ERROR',
+    'database initialisation': 'DATABASE_INITIALISATION_ERROR',
+    'server listen': 'SERVER_LISTEN_ERROR',
+  };
+  const code = safeErrorCode(error?.code) || codes[stage] || 'DASHBOARD_STARTUP_ERROR';
+  return `GA4 dashboard failed during ${stage}: ${code}`;
+}
+
+function safeErrorCode(value) {
+  return typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,31}$/.test(value) ? value : null;
+}
+
+export function createStartupError(stage, error) {
+  const wrapped = new Error(startupDiagnostic(stage, error));
+  wrapped.startupStage = stage;
+  wrapped.startupCode = safeErrorCode(error?.code) || null;
+  return wrapped;
+}
+
+function listen(server, port) {
+  return new Promise((resolve, reject) => {
+    const onError = (error) => {
+      server.removeListener('listening', onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.removeListener('error', onError);
+      resolve();
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(port, '0.0.0.0');
+  });
+}
+
+async function closePool(pool) {
+  if (typeof pool?.end === 'function') await Promise.resolve(pool.end()).catch(() => {});
+}
+
 export async function startDashboard({ env = process.env, pool, logger = console } = {}) {
-  const config = loadConfig(env, { requireAgentMail: false, requireDashboardAuth: true });
-  const dashboardPool = pool ?? new Pool({ connectionString: config.databaseUrl });
-  await ensureSchema(dashboardPool);
+  let config;
+  try {
+    config = loadDashboardConfig(env);
+  } catch (error) {
+    throw createStartupError('configuration', error);
+  }
+
+  let dashboardPool;
+  try {
+    dashboardPool = pool ?? new Pool({ connectionString: config.databaseUrl });
+    await ensureSchema(dashboardPool);
+  } catch (error) {
+    await closePool(dashboardPool);
+    throw createStartupError('database initialisation', error);
+  }
+
   const server = createDashboardServer({ config, pool: dashboardPool, logger });
   const port = Number(env.PORT || 3000);
-  await new Promise((resolve) => server.listen(port, '0.0.0.0', resolve));
+  try {
+    await listen(server, port);
+  } catch (error) {
+    await closePool(dashboardPool);
+    throw createStartupError('server listen', error);
+  }
   return { server, pool: dashboardPool };
 }
 
 if (process.argv[1]?.endsWith('/dashboard.js')) {
-  startDashboard().catch(() => {
-    console.error('GA4 dashboard failed to start.');
+  startDashboard().catch((error) => {
+    console.error(error instanceof Error ? error.message : 'GA4 dashboard startup failed.');
     process.exitCode = 1;
   });
 }
